@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>JARVIS - SMART (Recorder)</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma@0.8.0/css/bulma.min.css"
+    />
+    <link rel="stylesheet" href="styles/index.css" />
+    <script defer src="entry.js"></script>
+  </head>
+  <body class="content">
+    <video></video>
+
+    <button id="startBtn" class="button is-primary" disabled>Start</button>
+    <button id="stopBtn" class="button is-warning" disabled>Stop</button>
+    <button id="saveBtn" class="button is-info" disabled>Save Video</button>
+    <button id="saveLogsBtn" class="button is-info" onclick="saveBothFiles()" disabled>Save Logs</button>
+    <!-- add a loading bar -->
+    
+    
+    <script>
+      const { dialog } = require('electron').remote;
+      const fs = require('fs');
+      const path = require('path');
+
+
+      function saveFileToNewLocation(originalPath) {
+        // Use Electron dialog to let the user choose a directory and specify a file name
+        dialog.showSaveDialog({
+          defaultPath: originalPath
+        }).then(result => {
+          if (!result.canceled && result.filePath) {
+            const savePath = result.filePath;
+
+            // Copy the file to the new location
+            fs.copyFile(originalPath, savePath, (err) => {
+              if (err) throw err;
+              console.log(`${originalPath} was saved to ${savePath}`);
+            });
+          }
+        }).catch(err => {
+          console.error('Error selecting save location:', err);
+        });
+      }
+
+      // Example usage
+      // Assuming the paths to your files are as follows (you'll need to adjust them to your actual paths)
+      const activityLogDocxPath = './Activity_Log.docx';
+      const activityLogTagPath = './Activity_Log.tag';
+      const Cropped_ScreenshotsPath = './temps/Cropped_Screenshots';
+      const Full_ScreenshotsPath = './temps/Full_Screenshots';
+
+      // Function to save both files
+      function saveBothFiles() {
+          saveFileToNewLocation(activityLogDocxPath);
+          saveFileToNewLocation(activityLogTagPath);
+
+          // add a loading bar
+   
+        }
+
+
+//       function saveDirectoryToNewLocation(originalDirPath, defaultDirName) {
+//     try {
+//         const result =  dialog.showOpenDialog({
+//             properties: ['openDirectory']
+//         });
+
+//         if (!result.canceled && result.filePaths.length > 0) {
+//             const savePath = result.filePaths[0];
+//             // Use the default directory name if provided, otherwise, use the name of the original directory
+//             const directoryName = defaultDirName || path.basename(originalDirPath);
+//             const destination = path.join(savePath, directoryName);
+
+//             // Copy the directory to the new location
+//             fsExtra.copy(originalDirPath, destination);
+//             console.log(`${directoryName} was copied to ${destination}`);
+//         }
+//     } catch (err) {
+//         console.error('Error selecting folder or copying directory:', err);
+//     }
+// }
+
+      // function saveDirectoryToNewLocation(originalPath) {
+      //   // Use Electron dialog to let the user choose a directory
+      //   dialog.showOpenDialog({
+      //     properties: ['openDirectory']
+      //   }).then(result => {
+      //     if (!result.canceled && result.filePaths.length > 0) {
+      //       const savePath = result.filePaths[0];
+
+      //       // Copy the directory to the new location
+      //       fs.copy(originalPath, savePath, { recursive: true }, (err) => {
+      //         if (err) throw err;
+      //         console.log(`${originalPath} was saved to ${savePath}`);
+      //       });
+      //     }
+      //   }).catch(err => {
+      //     console.error('Error selecting save location:', err);
+      //   });
+      // }
+    </script>
+
+    <hr />
+
+    <progress id="saveProgressBar" class="progress is-small is-primary" max="100"></progress>
+
+    <button id="videoSelectBtn" class="button is-text">
+      Choose a Video Source
+    </button>
+  </body>
+</html>
