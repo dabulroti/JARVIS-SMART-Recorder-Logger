@@ -1,10 +1,10 @@
 # Custom URL Scheme for SMART 🤖
 
-This document provides you with a straightforward guide on setting up a custom URL scheme (`myapp-protocol`) for this Electron application on Windows. This allows users to launch this application from web browsers or other external sources using URLs formatted like `myapp-protocol://`.
+This README provides you with a straightforward guide on setting up a custom URL scheme (`myapp-protocol`) for this Electron application on Windows. This allows users to launch this application from web browsers or other external sources using URLs formatted like `myapp-protocol://`.
 
 ## Packaging Your Electron App 📦✨
 
-Before setting up your custom URL scheme, you'll want to package this Electron application, if we haven't provided the exe already. 
+Before setting up your custom URL scheme, you'll want to package this Electron application, if we haven't provided the exe already 🤭
 
 1. **Launch Command Line Interface:**
    Open your Command Prompt or Terminal window.
@@ -37,6 +37,8 @@ For the Electron part of the app, `electron-packager` is a great tool for the jo
    ```
 
    This command tells `electron-packager` to package the current directory (`.`, representing your project) into an app named "ScreenRecorder", targeted for Windows (`win32`) with a 64-bit architecture (`x64`).
+   
+🔗 Continue to follow the instructions below to configure your custom URL scheme.
 
 ## Creating the Windows Registry File
 
@@ -93,14 +95,16 @@ If everything is configured correctly, this application will now respond to URLs
 
 ---
 
-Remember to replace `"C:\\Path\\To\\Your\\App\\YourApp.exe"` with the actual file path to your application's executable. Also, always back up your registry before making changes to avoid any potential system issues. Happy coding! 🌟
-
 ## Tidying Up 🧹
 
-For hardware crashes, you can ensure that the exe is terminated using the following command:
+If you encounter situations where the application doesn't function as intended, possibly due to hardware crashes or other unforeseen issues that are out of your control, you can use the following command to ensure that the application's process is terminated:
 
 ```
 taskkill /f /t /im ScreenRecorderPSRPythonBackend.exe
 ```
 
 This command forcefully terminates all instances of `ScreenRecorderPSRPythonBackend.exe` that might be running.
+
+---
+
+Remember to replace `"C:\\Path\\To\\Your\\App\\YourApp.exe"` with the actual file path to your application's executable. Also, always back up your registry before making changes to avoid any potential system issues. Happy coding! 🌟
