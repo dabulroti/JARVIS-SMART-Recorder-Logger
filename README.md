@@ -13,7 +13,7 @@ Before setting up your custom URL scheme, you'll want to package this Electron a
    Execute the following command to transform your Python script into an executable:
 
    ```
-   pyinstaller -F ScreenRecorderPSRPythonBackend.py
+   pyinstaller -F -w index.py
    ```
 
    The `-F` flag creates a single bundled executable. This means PyInstaller collects all the necessary files and packages them together.
