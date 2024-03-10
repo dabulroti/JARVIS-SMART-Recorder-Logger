@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>JARVIS - SMART (Recorder)</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma@0.8.0/css/bulma.min.css"
+    />
+    <link rel="stylesheet" href="styles/index.css" />
+    <script defer src="entry.js"></script>
+  </head>
+  <body class="content">
+    <video></video>
+
+    <button id="startBtn" class="button is-primary" disabled>Start</button>
+    <button id="stopBtn" class="button is-warning" disabled>Stop</button>
+    <button id="saveBtn" class="button is-info" disabled>Save Video</button>
+    <button id="saveLogsBtn" class="button is-info" onclick="saveBothFiles()" disabled>Save Logs</button>
+    <!-- add a loading bar -->
+
+
+    <script>
+      const { dialog } = require('electron').remote;
+      const fs = require('fs');
+      const path = require('path');
+
+
+      function saveFileToNewLocation(originalPath) {
+        // Use Electron dialog to let the user choose a directory and specify a file name
+        dialog.showSaveDialog({
+          defaultPath: originalPath
+        }).then(result => {
+          if (!result.canceled && result.filePath) {
+            const savePath = result.filePath;
+
+            // Copy the file to the new location
+            fs.copyFile(originalPath, savePath, (err) => {
+              if (err) throw err;
+              console.log(`${originalPath} was saved to ${savePath}`);
+            });
+          }
+        }).catch(err => {
+          console.error('Error selecting save location:', err);
+        });
+      }
+
+      // Example usage
+      // Assuming the paths to your files are as follows (you'll need to adjust them to your actual paths)
+      const activityLogDocxPath = './Activity_Log.docx';
+      const activityLogTagPath = './Activity_Log.tag';
+      const Cropped_ScreenshotsPath = './temps/Cropped_Screenshots';
+      const Full_ScreenshotsPath = './temps/Full_Screenshots';
+
+      // Function to save both files
+      function saveBothFiles() {
+          saveFileToNewLocation(activityLogDocxPath);
+          saveFileToNewLocation(activityLogTagPath);
+      }
+    </script>
+
+    <hr />
+
+    <progress id="saveProgressBar" class="progress is-small is-primary" max="100"></progress>
+
+    <button id="videoSelectBtn" class="button is-text">
+      Choose a Video Source
+    </button>
+    <div id="urlDisplay">URL will be displayed here</div>
+  </body>
+</html>
