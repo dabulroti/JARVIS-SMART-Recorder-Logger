@@ -28,6 +28,33 @@ const createWindow = () => {
 
 };
 
+const http = require('http');
+
+function waitForServerReady(url, callback) {
+  const parsedUrl = new URL(url);
+
+  const options = {
+    hostname: parsedUrl.hostname,
+    port: parsedUrl.port,
+    path: parsedUrl.pathname,
+    method: 'GET'
+  };
+
+  const interval = setInterval(() => {
+    const req = http.request(options, res => {
+      console.log('Server is ready.');
+      clearInterval(interval);
+      callback();
+    });
+
+    req.on('error', error => {
+      console.log('Server not ready, waiting...');
+    });
+
+    req.end();
+  }, 1000); // Attempt to connect every 1000 milliseconds (1 second)
+}
+
 app.on('ready', () => {
   createWindow();
   handleCommandLineArguments(process.argv);
@@ -40,6 +67,10 @@ app.on('ready', () => {
       // If you want to log this success in the renderer's DevTools:
       mainWindow.webContents.once('did-finish-load', () => {
         mainWindow.webContents.executeJavaScript(`console.log("Success: Opened custom URL: ${customUrl}")`);
+        waitForServerReady('http://127.0.0.1:8002/', () => {
+        // Actions to take once the server is confirmed ready
+        mainWindow.webContents.send('server-ready');
+  });
       });
     })
     .catch(err => {

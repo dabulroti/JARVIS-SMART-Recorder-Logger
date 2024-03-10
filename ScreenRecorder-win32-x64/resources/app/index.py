@@ -1,13 +1,6 @@
 import logging
 import sys
 
-if sys.stdout is None:
-    # Setup logging to file if running in an environment without stdout/stderr
-    logging.basicConfig(filename='app.log', filemode='w', level=logging.INFO)
-else:
-    # Setup basic logging to stdout
-    logging.basicConfig(level=logging.INFO)
-
 import os
 import uvicorn
 import threading
@@ -65,6 +58,15 @@ cropped_screenshots_dir.mkdir(parents=True, exist_ok=True)
 activity_log_tag_path = app_data_path / 'Activity_Log.tag'
 activity_log_tag_path.parent.mkdir(parents=True, exist_ok=True)
 activity_log_docx_path = app_data_path / 'Activity_Log.docx'
+
+
+
+log_directory = os.path.join(os.getenv('APPDATA', os.path.expanduser('~')), app_name)
+# Ensure the directory exists
+os.makedirs(log_directory, exist_ok=True)
+log_file_path = os.path.join(log_directory, 'app.log')
+# Setup logging to the specified file
+logging.basicConfig(filename=log_file_path, filemode='a', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def append_to_tagui_script(content):
     with open(activity_log_tag_path, 'a') as file:

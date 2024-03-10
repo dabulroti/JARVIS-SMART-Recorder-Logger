@@ -11,15 +11,22 @@
     <script defer src="entry.js"></script>
   </head>
   <body class="content">
-    <video></video>
-
-    <button id="startBtn" class="button is-primary" disabled>Start</button>
-    <button id="stopBtn" class="button is-warning" disabled>Stop</button>
-    <button id="saveBtn" class="button is-info" disabled>Save Video</button>
-    <button id="saveLogsBtn" class="button is-info" onclick="saveBothFiles()" disabled>Save Logs</button>
-    <!-- add a loading bar -->
-
-
+    <div id="loading">
+      <img src="loading.gif" alt="Loading..." />
+    </div>
+    <div id="app-content" style="display: none;">
+      <video></video>
+      <button id="startBtn" class="button is-primary" disabled>Start</button>
+      <button id="stopBtn" class="button is-warning" disabled>Stop</button>
+      <button id="saveBtn" class="button is-info" disabled>Save Video</button>
+      <button id="saveLogsBtn" class="button is-info" onclick="saveBothFiles()" disabled>Save Logs</button>
+      <hr />
+      <progress id="saveProgressBar" class="progress is-small is-primary" max="100"></progress>
+      <button id="videoSelectBtn" class="button is-text">
+        Choose a Video Source
+      </button>
+      <div id="urlDisplay">URL will be displayed here</div>
+    </div>
     <script>
       const { dialog } = require('electron').remote;
       const fs = require('fs');
@@ -58,14 +65,5 @@
           saveFileToNewLocation(activityLogTagPath);
       }
     </script>
-
-    <hr />
-
-    <progress id="saveProgressBar" class="progress is-small is-primary" max="100"></progress>
-
-    <button id="videoSelectBtn" class="button is-text">
-      Choose a Video Source
-    </button>
-    <div id="urlDisplay">URL will be displayed here</div>
   </body>
 </html>
