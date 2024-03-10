@@ -18,8 +18,8 @@
     <button id="saveBtn" class="button is-info" disabled>Save Video</button>
     <button id="saveLogsBtn" class="button is-info" onclick="saveBothFiles()" disabled>Save Logs</button>
     <!-- add a loading bar -->
-    
-    
+
+
     <script>
       const { dialog } = require('electron').remote;
       const fs = require('fs');
@@ -56,51 +56,7 @@
       function saveBothFiles() {
           saveFileToNewLocation(activityLogDocxPath);
           saveFileToNewLocation(activityLogTagPath);
-
-          // add a loading bar
-   
-        }
-
-
-//       function saveDirectoryToNewLocation(originalDirPath, defaultDirName) {
-//     try {
-//         const result =  dialog.showOpenDialog({
-//             properties: ['openDirectory']
-//         });
-
-//         if (!result.canceled && result.filePaths.length > 0) {
-//             const savePath = result.filePaths[0];
-//             // Use the default directory name if provided, otherwise, use the name of the original directory
-//             const directoryName = defaultDirName || path.basename(originalDirPath);
-//             const destination = path.join(savePath, directoryName);
-
-//             // Copy the directory to the new location
-//             fsExtra.copy(originalDirPath, destination);
-//             console.log(`${directoryName} was copied to ${destination}`);
-//         }
-//     } catch (err) {
-//         console.error('Error selecting folder or copying directory:', err);
-//     }
-// }
-
-      // function saveDirectoryToNewLocation(originalPath) {
-      //   // Use Electron dialog to let the user choose a directory
-      //   dialog.showOpenDialog({
-      //     properties: ['openDirectory']
-      //   }).then(result => {
-      //     if (!result.canceled && result.filePaths.length > 0) {
-      //       const savePath = result.filePaths[0];
-
-      //       // Copy the directory to the new location
-      //       fs.copy(originalPath, savePath, { recursive: true }, (err) => {
-      //         if (err) throw err;
-      //         console.log(`${originalPath} was saved to ${savePath}`);
-      //       });
-      //     }
-      //   }).catch(err => {
-      //     console.error('Error selecting save location:', err);
-      //   });
-      // }
+      }
     </script>
 
     <hr />
@@ -110,5 +66,6 @@
     <button id="videoSelectBtn" class="button is-text">
       Choose a Video Source
     </button>
+    <div id="urlDisplay">URL will be displayed here</div>
   </body>
 </html>

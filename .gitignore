@@ -32,6 +32,8 @@ coverage
 # Compiled binary addons (https://nodejs.org/api/addons.html)
 build/Release
 dist/
+build/
+ScreenRecorder-win32-x64/
 
 # Dependency directories
 node_modules/
@@ -88,4 +90,8 @@ typings/
 
 # Electron-Forge
 out/
-venv
+venv/
+build
+dist
+node_modules
+ScreenRecorder-win32-x64

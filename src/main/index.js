@@ -1,84 +1,61 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
-
-const isDev = process.env.MODE === 'development';
+const { execFile, exec } = require('child_process');
+const fs = require('fs');
 
 require('./lib/events');
 
 if (require('electron-squirrel-startup')) {
-    app.quit();
+  app.quit();
 }
 
 Menu.setApplicationMenu(null);
 
+let mainWindow;
 
 const createWindow = () => {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 625,
     height: 556,
     icon: path.resolve(__dirname, 'icon.png'),
     webPreferences: {
-      nodeIntegration: true
-    }
+      nodeIntegration: true,
+    },
   });
 
-  
-
-  mainWindow.loadFile(
-    path.resolve(
-      __dirname,
-      '..',
-      'renderer',
-      'index.html'
-    )
-  );
-
+  mainWindow.loadFile(path.resolve(__dirname, '..', 'renderer', 'index.html'));
   mainWindow.webContents.openDevTools();
 
+};
 
-  if (isDev) {
-      mainWindow.webContents.openDevTools();
+app.on('ready', () => {
+  createWindow();
+  handleCommandLineArguments(process.argv);
+
+  // Attempt to open a custom URL scheme
+  const customUrl = 'myapp2-protocol://';
+  shell.openExternal(customUrl)
+    .then(() => {
+      console.log('Success: Opened custom URL:', customUrl);
+      // If you want to log this success in the renderer's DevTools:
+      mainWindow.webContents.once('did-finish-load', () => {
+        mainWindow.webContents.executeJavaScript(`console.log("Success: Opened custom URL: ${customUrl}")`);
+      });
+    })
+    .catch(err => {
+      console.error('Error opening custom URL:', err);
+    });
+});
+
+
+app.on('second-instance', (event, commandLine, workingDirectory) => {
+  if (mainWindow) {
+    handleCommandLineArguments(commandLine);
   }
-
-}
-
-
-let backend;
-backend = path.join(process.cwd(), './dist/ScreenRecorderPSRPythonBackend.exe')
-var execfile = require('child_process').execFile;
-execfile(
- backend,
- {
-  windowsHide: true,
- },
- (err, stdout, stderr) => {
-  if (err) {
-  console.log(err);
-  }
-  if (stdout) {
-  console.log(stdout);
-  }
-  if (stderr) {
-  console.log(stderr);
-  }
- }
-)
-
-
-app.on('ready', createWindow);
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-      const { exec } = require('child_process');
-exec('taskkill /f /t /im ScreenRecorderPSRPythonBackend.exe', (err, stdout, stderr) => {
- if (err) {
-  console.log(err)
- return;
- }
- console.log(`stdout: ${stdout}`);
- console.log(`stderr: ${stderr}`);
-});
     app.quit();
   }
 });
@@ -89,17 +66,31 @@ app.on('activate', () => {
   }
 });
 
-// Add this to listen for the app's 'before-quit' event
 app.on('before-quit', () => {
-  const { exec } = require('child_process');
-exec('taskkill /f /t /im ScreenRecorderPSRPythonBackend.exe', (err, stdout, stderr) => {
- if (err) {
-  console.log(err)
- return;
- }
- console.log(`stdout: ${stdout}`);
- console.log(`stderr: ${stderr}`);
-});
+  killBackendProcess();
 });
 
-//open dev tools
+function handleCommandLineArguments(commandLine) {
+  const protocolUrl = commandLine.find(arg => arg.startsWith('myapp-protocol://'));
+  if (protocolUrl && mainWindow) {
+    mainWindow.webContents.once('did-finish-load', () => {
+      mainWindow.webContents.send('protocolUrl', protocolUrl);
+      mainWindow.webContents.send('commandLine', process.cwd());
+    });
+  }
+}
+
+function killBackendProcess() {
+  exec('taskkill /f /t /im index.exe', (err, stdout, stderr) => {
+    if (err) {
+      console.error('Failed to kill backend process:', err);
+      return;
+    }
+    if (stdout) {
+      console.log('Backend process killed:', stdout);
+    }
+    if (stderr) {
+      console.error('Error killing backend process:', stderr);
+    }
+  });
+}
