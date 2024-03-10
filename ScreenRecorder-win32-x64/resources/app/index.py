@@ -1,26 +1,49 @@
-from fastapi import FastAPI, HTTPException
+import logging
+import sys
+
+if sys.stdout is None:
+    # Setup logging to file if running in an environment without stdout/stderr
+    logging.basicConfig(filename='app.log', filemode='w', level=logging.INFO)
+else:
+    # Setup basic logging to stdout
+    logging.basicConfig(level=logging.INFO)
+
+import os
 import uvicorn
 import threading
-from pydantic import BaseModel
-from typing import Optional
-import os
-import io
-import time
-import threading
+from rembg import remove
+from pathlib import Path
 from docx import Document
-from PIL import ImageGrab, Image
+from typing import Optional
 from datetime import datetime
+from pydantic import BaseModel
+from PIL import ImageGrab, Image
 from pynput import mouse, keyboard
 from docx.shared import Inches, RGBColor
-from rembg import remove
-import shutil
-
-
-# Assuming other necessary imports and your defined functions are above
-
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+doc = None
+table = None
 app = FastAPI()
+cropped_screenshots = []
+app_name = 'JARVIS - SMART'
+mouse_listener_thread = None
+Keyboard_listener_thread = None
+# Flag to control the listener's state
+listening = True
+# Radius around the click to crop and typing delay
+CROP_RADIUS = 50  # pixels
+typing_delay = 2.0  # Seconds to wait before considering typing as stopped
+# Buffer and lock for keystrokes, and timer
+keystroke_buffer = []
+buffer_lock = threading.Lock()
+typing_timer = None
+# A global variable to keep track of the listener thread
+listener_thread: Optional[threading.Thread] = None
+
+class LoggerStatus(BaseModel):
+    is_active: bool
 
 # Add CORSMiddleware
 app.add_middleware(
@@ -31,54 +54,39 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-
-def remove_background(cropped_screenshot_path):
-    # Open the input image
-    with open(cropped_screenshot_path, 'rb') as input_img:
-        input_data = input_img.read()
-    # Use rembg to remove the background
-    output_data = remove(input_data)
-    # Save the output image
-    output_image_path = cropped_screenshot_path+'-no-bg.png'
-    with open(output_image_path, 'wb') as output_img:
-        output_img.write(output_data)
-    click_command = f'click {output_image_path}\n'
-    tagui_script_file.write(click_command)
-
-
-mouse_listener_thread = None
-Keyboard_listener_thread = None
-
-# Initialize a Word document and add a heading
-cropped_screenshots = []
-# doc.add_heading('Activity Log', 0)
-
-doc = None
-table = None
-
-from pathlib import Path
-
-app_name = 'JARVIS - SMART'
 app_data_path = Path(os.getenv('APPDATA')) / app_name
 full_screenshots_dir = app_data_path / 'Full_Screenshots'
 cropped_screenshots_dir = app_data_path / 'Cropped_Screenshots'
-
 # Create the directories, ensuring parent directories are created too
 full_screenshots_dir.mkdir(parents=True, exist_ok=True)
 cropped_screenshots_dir.mkdir(parents=True, exist_ok=True)
 
+# Before starting or stopping logging, adjust where the TagUI script file is created
+activity_log_tag_path = app_data_path / 'Activity_Log.tag'
+activity_log_tag_path.parent.mkdir(parents=True, exist_ok=True)
+activity_log_docx_path = app_data_path / 'Activity_Log.docx'
 
-# Flag to control the listener's state
-listening = True
+def append_to_tagui_script(content):
+    with open(activity_log_tag_path, 'a') as file:
+        file.write(content + "\n")
 
-# Radius around the click to crop and typing delay
-CROP_RADIUS = 50  # pixels
-typing_delay = 2.0  # Seconds to wait before considering typing as stopped
 
-# Buffer and lock for keystrokes, and timer
-keystroke_buffer = []
-buffer_lock = threading.Lock()
-typing_timer = None
+# Ensure directories exist
+full_screenshots_dir.mkdir(parents=True, exist_ok=True)
+cropped_screenshots_dir.mkdir(parents=True, exist_ok=True)
+
+def remove_background(cropped_screenshot_path):
+    cropped_screenshot_path = Path(cropped_screenshot_path)  # Convert to Path object if not already
+    with open(cropped_screenshot_path, 'rb') as input_img:
+        input_data = input_img.read()
+    output_data = remove(input_data)
+    # Generate output image path with new suffix
+    output_image_path = cropped_screenshot_path.with_suffix('').with_name(cropped_screenshot_path.name + '-no-bg.png')
+    with open(output_image_path, 'wb') as output_img:
+        output_img.write(output_data)
+    with open(activity_log_tag_path, 'a') as tagui_script_file:
+        click_command = f'click {output_image_path}\n'
+        tagui_script_file.write(click_command)
 
 def add_row_to_table(description, full_path=None, cropped_path=None):
     row = table.add_row().cells
@@ -93,7 +101,6 @@ def add_row_to_table(description, full_path=None, cropped_path=None):
         run = paragraph.add_run()
         run.add_picture(cropped_path, width=Inches(1.0))
         paragraph.add_run('\n' + os.path.basename(cropped_path))  # Add filename below the picture
-
 
 def flush_keystrokes():
     global table
@@ -162,62 +169,29 @@ def stop_listening(key):
             flush_keystrokes()  # Ensure we flush any remaining keystrokes
         return False
 
-# A global variable to keep track of the listener thread
-listener_thread: Optional[threading.Thread] = None
-
-class LoggerStatus(BaseModel):
-    is_active: bool
-
 @app.post("/start-logging/")
 async def start_logging():
-    global listener_thread, listening, tagui_script_file, doc, table, cropped_screenshots
+    global listener_thread, listening, doc, table, cropped_screenshots
 
-    # delete Full_Screenshots and Cropped_Screenshots directories if they exist and create new ones
-    if os.path.exists(full_screenshots_dir):
-        shutil.rmtree(full_screenshots_dir)
-    os.makedirs(full_screenshots_dir)
-    if os.path.exists(cropped_screenshots_dir):
-        shutil.rmtree(cropped_screenshots_dir)
-    os.makedirs(cropped_screenshots_dir)
+    # Cleanup before starting
+    if activity_log_docx_path.exists():
+        activity_log_docx_path.unlink()
+    if activity_log_tag_path.exists():
+        activity_log_tag_path.unlink()
 
-    #delete the Activity_Log.docx and Activity_Log.tag file if it exists
-    if os.path.exists('Activity_Log.docx'):
-        os.remove('Activity_Log.docx')
-    if os.path.exists('Activity_Log.tag'):
-        os.remove('Activity_Log.tag')
-
-    doc = None
-    table = None
-    cropped_screenshots = []
-
+    # Initialize doc and table
     doc = Document()
     doc.add_heading('Activity Log', 0)
-
-    # Add a table with a header row
     table = doc.add_table(rows=1, cols=3)
     table.style = 'Table Grid'
     hdr_cells = table.rows[0].cells
     hdr_cells[0].text = 'Action Description'
     hdr_cells[1].text = 'Full Screenshot'
     hdr_cells[2].text = 'Cropped Screenshot'
+    cropped_screenshots = []
 
-
-
-    if listener_thread is None or not listener_thread.is_alive():
+    if not listener_thread or not listener_thread.is_alive():
         listening = True
-        # Initialize your document and table as before
-        doc = Document()
-        doc.add_heading('Activity Log', 0)
-        table = doc.add_table(rows=1, cols=3)
-        table.style = 'Table Grid'
-        hdr_cells = table.rows[0].cells
-        hdr_cells[0].text = 'Action Description'
-        hdr_cells[1].text = 'Full Screenshot'
-        hdr_cells[2].text = 'Cropped Screenshot'
-
-        tagui_script_path = 'Activity_Log.tag'
-        tagui_script_file = open(tagui_script_path, 'w')
-
         listener_thread = threading.Thread(target=run_listeners)
         listener_thread.start()
         return {"message": "Logging started."}
@@ -226,47 +200,33 @@ async def start_logging():
 
 @app.post("/stop-logging/")
 async def stop_logging():
-    global listening, mouse_listener_thread, Keyboard_listener_thread, listener_thread, tagui_script_file, doc
+    global listening, mouse_listener_thread, Keyboard_listener_thread, listener_thread
 
-    # try:
     listening = False
 
-    # Wait for the listener thread to stop
     if mouse_listener_thread:
         mouse_listener_thread.join()
     if Keyboard_listener_thread:
         Keyboard_listener_thread.join()
-    listener_thread.join()
-    # Once the thread stops, you might want to save your document and do cleanup
+    if listener_thread:
+        listener_thread.join()
+
     for screenshot in cropped_screenshots:
         remove_background(screenshot)
-    tagui_script_file.close()
-    print("TagUI script file closed.")
+
     if doc:
-        doc.save('Activity_Log.docx')
-    if tagui_script_file:
-        tagui_script_file.close()
-    # if os.path.exists(full_screenshots_dir):
-    #     shutil.rmtree(full_screenshots_dir)
-    # if os.path.exists(cropped_screenshots_dir):
-    #     shutil.rmtree(cropped_screenshots_dir)
+        doc.save(activity_log_docx_path)
 
     return {"message": "Logging stopped and data saved."}
-    # Except Exception as e:
 
 def run_listeners():
-    # You need to modify this part to initialize your listeners
-    # For example:
-    global listening, mouse_listener_thread, Keyboard_listener_thread
-    try:
-        mouse_listener_thread = threading.Thread(target=lambda: mouse.Listener(on_click=on_click, on_scroll=on_scroll).start())
-        mouse_listener_thread.start()
+    global mouse_listener_thread, Keyboard_listener_thread
+    mouse_listener_thread = threading.Thread(target=lambda: mouse.Listener(on_click=on_click, on_scroll=on_scroll).start())
+    mouse_listener_thread.start()
 
-        Keyboard_listener_thread = threading.Thread(target=lambda: keyboard.Listener(on_press=on_press, on_release=stop_listening).start())
-        Keyboard_listener_thread.start()
-    finally:
-        # Cleanup actions, such as saving the document and closing files
-        pass
+    Keyboard_listener_thread = threading.Thread(target=lambda: keyboard.Listener(on_press=on_press, on_release=stop_listening).start())
+    Keyboard_listener_thread.start()
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8002)
+    uvicorn.run(app, host="127.0.0.1", port=8002, log_config=None)
+

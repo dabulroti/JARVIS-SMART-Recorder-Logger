@@ -1,7 +1,7 @@
+import logging
+import sys
+
 import os
-import io
-import time
-import shutil
 import uvicorn
 import threading
 from rembg import remove
@@ -58,6 +58,15 @@ cropped_screenshots_dir.mkdir(parents=True, exist_ok=True)
 activity_log_tag_path = app_data_path / 'Activity_Log.tag'
 activity_log_tag_path.parent.mkdir(parents=True, exist_ok=True)
 activity_log_docx_path = app_data_path / 'Activity_Log.docx'
+
+
+
+log_directory = os.path.join(os.getenv('APPDATA', os.path.expanduser('~')), app_name)
+# Ensure the directory exists
+os.makedirs(log_directory, exist_ok=True)
+log_file_path = os.path.join(log_directory, 'app.log')
+# Setup logging to the specified file
+logging.basicConfig(filename=log_file_path, filemode='a', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def append_to_tagui_script(content):
     with open(activity_log_tag_path, 'a') as file:
@@ -221,4 +230,5 @@ def run_listeners():
     Keyboard_listener_thread.start()
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8002)
+    uvicorn.run(app, host="127.0.0.1", port=8002, log_config=None)
+
