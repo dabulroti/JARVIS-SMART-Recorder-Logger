@@ -68,7 +68,7 @@ app.on('ready', () => {
       // If you want to log this success in the renderer's DevTools:
       mainWindow.webContents.once('did-finish-load', () => {
         mainWindow.webContents.executeJavaScript(`console.log("Success: Opened custom URL: ${customUrl}")`);
-        waitForServerReady('http://127.0.0.1:8002/', () => {
+        waitForServerReady('http://127.0.0.1:8003/', () => {
         // Actions to take once the server is confirmed ready
         mainWindow.webContents.send('server-ready');
   });

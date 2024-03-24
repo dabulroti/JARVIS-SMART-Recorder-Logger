@@ -204,44 +204,44 @@ def stop_listening(key):
             flush_keystrokes()  # Ensure we flush any remaining keystrokes
         return False
 
-    
+
 @app.post("/upload/")
 async def upload_file(empId: str = Form(...), processId: str = Form(...), flowId: str = Form(...), file: UploadFile = File(...)):
 
     # Now you directly use the form fields to construct your UploadRequest object
     # upload_request = UploadRequest(empId=empId, processId=processId, flowId=flowId)
-    
+
     fs, db = get_gridfs_connection()
     employees_collection = db["employees"]
-    
+
     # The rest of your function remains unchanged, using the constructed UploadRequest object
     employee = employees_collection.find_one({"empId": empId})
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found.")
-    
+
     processObject = next((p for p in employee.get("processObjects", []) if p["processId"] == processId), None)
     if not processObject:
         raise HTTPException(status_code=404, detail="Process not found.")
-    
+
     # Save uploaded file to GridFS
     contents = await file.read()
     file_id = fs.put(contents, filename=file.filename)
-    
+
     # Update the database entry
     processObject.setdefault('flows', []).append({"file_id": file_id, "flowId": flowId})
     employees_collection.update_one({"empId": empId}, {"$set": {"processObjects": employee["processObjects"]}})
-    
+
     return {"message": "File uploaded successfully", "file_id": str(file_id)}
 
 @app.get("/retrieve/")
 def retrieve_file(upload_request: RetrieveLogRequest):
     fs, db = get_gridfs_connection()
     employees_collection = db["employees"]
-    
+
     employee = employees_collection.find_one({"empId": upload_request.empId})
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found.")
-    
+
     processObject = next((p for p in employee.get("processObjects", []) if p["processId"] == upload_request.processId), None)
     # if not processObject or 'file_id' not in processObject:
     #     raise HTTPException(status_code=404, detail="Process or file not found.")
@@ -249,10 +249,10 @@ def retrieve_file(upload_request: RetrieveLogRequest):
         flow = next((f for f in processObject.get("flows",[]) if f["flowId"] == upload_request.flowId),None)
         if not flow or 'file_id' not in flow:
             raise HTTPException(status_code=404, detail="Process or file not found.")
-        
+
         file_id = flow['file_id']
         file = fs.get(file_id)
-        
+
         return StreamingResponse(BytesIO(file.read()), media_type="application/zip", headers={"Content-Disposition": "attachment; filename=download.zip"})
     else:
         raise HTTPException(status_code=404, detail="Process not found.")
@@ -269,7 +269,7 @@ async def start_logging():
         activity_log_tag_path.unlink()
 
     full_screenshots_dir.mkdir(parents=True, exist_ok=True)
-    cropped_screenshots_dir.mkdir(parents=True, exist_ok=True)    
+    cropped_screenshots_dir.mkdir(parents=True, exist_ok=True)
 
     # Initialize doc and table
     doc = Document()
