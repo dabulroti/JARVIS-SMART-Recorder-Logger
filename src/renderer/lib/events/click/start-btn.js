@@ -26,13 +26,11 @@ document
 
     const stopBtn = document.getElementById('stopBtn')
     const saveBtn = document.getElementById('saveBtn')
-    const saveLogsBtn = document.getElementById('saveLogsBtn')
     const videoSelectBtn = document.getElementById('videoSelectBtn')
 
     stopBtn.removeAttribute('disabled')
     saveBtn.setAttribute('disabled', 'disabled')
     videoSelectBtn.setAttribute('disabled', 'disabled')
-    saveLogsBtn.setAttribute('disabled', 'disabled')
     target.setAttribute('disabled', 'disabled')
     
     window.mediaRecorder.start()

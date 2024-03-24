@@ -6,7 +6,6 @@ document
 
     const startBtn = document.getElementById('startBtn');
     const saveBtn = document.getElementById('saveBtn');
-    const saveLogsBtn = document.getElementById('saveLogsBtn');
     const videoSelectBtn = document.getElementById('videoSelectBtn');
 
     window.mediaRecorder.stop();
@@ -35,6 +34,5 @@ document
     target.setAttribute('disabled', 'disabled');
     startBtn.removeAttribute('disabled');
     saveBtn.removeAttribute('disabled');
-    saveLogsBtn.removeAttribute('disabled');
     videoSelectBtn.removeAttribute('disabled');
   });

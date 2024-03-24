@@ -1,0 +1,12 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\myapp-protocol]
+@="URL:myapp-protocol"
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\myapp-protocol\shell]
+
+[HKEY_CLASSES_ROOT\myapp-protocol\shell\open]
+
+[HKEY_CLASSES_ROOT\myapp-protocol\shell\open\command]
+@="\"D:\\Smart-logger cloned\\JARVIS-SMART-Recorder-Logger\\ScreenRecorder-win32-x64\\ScreenRecorder.exe\" \"%1\""

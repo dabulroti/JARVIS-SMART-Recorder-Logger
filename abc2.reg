@@ -1,0 +1,12 @@
+Windows Registry Editor Version 5.00
+
+[HKEY_CLASSES_ROOT\myapp2-protocol]
+@="URL:myapp2-protocol"
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\myapp2-protocol\shell]
+
+[HKEY_CLASSES_ROOT\myapp2-protocol\shell\open]
+
+[HKEY_CLASSES_ROOT\myapp2-protocol\shell\open\command]
+@="\"D:\\Smart-logger cloned\\JARVIS-SMART-Recorder-Logger\\dist\\index.exe\" \"%1\""
