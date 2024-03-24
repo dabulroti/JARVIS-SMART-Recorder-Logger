@@ -3,6 +3,7 @@ const path = require('path');
 const { execFile, exec } = require('child_process');
 const fs = require('fs');
 
+
 require('./lib/events');
 
 if (require('electron-squirrel-startup')) {
@@ -15,8 +16,8 @@ let mainWindow;
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
-    width: 625,
-    height: 556,
+    width: 1000,
+    height: 562.5,
     icon: path.resolve(__dirname, 'icon.png'),
     webPreferences: {
       nodeIntegration: true,
