@@ -28,13 +28,6 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 import json
 
-
-
-
-app = FastAPI()
-
-
-
 class UploadRequest(BaseModel):
     processId: str
     empId: str
@@ -308,20 +301,15 @@ async def start_logging():
 
 @app.post("/stop-logging/")
 async def stop_logging():
-    global listening, mouse_listener_thread, Keyboard_listener_thread, listener_thread
+    global mouse_listener, keyboard_listener
 
-    listening = False
+    if mouse_listener is not None:
+        mouse_listener.stop()
+        mouse_listener = None
 
-    if mouse_listener_thread:
-        mouse_listener_thread.join()
-    mouse_listener_thread = None
-    if Keyboard_listener_thread:
-        Keyboard_listener_thread.join()
-    Keyboard_listener_thread = None
-    if listener_thread:
-        listener_thread.join()
-    listener_thread = None
-   
+    if keyboard_listener is not None:
+        keyboard_listener.stop()
+        keyboard_listener = None
 
     for screenshot in cropped_screenshots:
         remove_background(screenshot)
@@ -332,13 +320,13 @@ async def stop_logging():
     return {"message": "Logging stopped and data saved."}
 
 def run_listeners():
-    global mouse_listener_thread, Keyboard_listener_thread
-    if not mouse_listener_thread or not mouse_listener_thread.is_alive():
-        mouse_listener_thread = threading.Thread(target=lambda: mouse.Listener(on_click=on_click, on_scroll=on_scroll).start())
-        mouse_listener_thread.start()
-    if not Keyboard_listener_thread or not Keyboard_listener_thread.is_alive():
-        Keyboard_listener_thread = threading.Thread(target=lambda: keyboard.Listener(on_press=on_press, on_release=stop_listening).start())
-        Keyboard_listener_thread.start()
+    global mouse_listener, keyboard_listener
+    mouse_listener = mouse.Listener(on_click=on_click, on_scroll=on_scroll)
+    mouse_listener.start()
+
+    keyboard_listener = keyboard.Listener(on_press=on_press, on_release=stop_listening)
+    keyboard_listener.start()
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="127.0.0.1", port=8002)
