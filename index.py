@@ -313,7 +313,6 @@ async def stop_logging():
     listening = False
 
     if mouse_listener_thread:
-        mouse_listener_thread
         mouse_listener_thread.join()
     mouse_listener_thread = None
     if Keyboard_listener_thread:
