@@ -305,10 +305,12 @@ async def stop_logging():
 
     if mouse_listener is not None:
         mouse_listener.stop()
+        mouse_listener.join()  # Wait for the listener thread to fully stop
         mouse_listener = None
 
     if keyboard_listener is not None:
         keyboard_listener.stop()
+        keyboard_listener.join()
         keyboard_listener = None
 
     for screenshot in cropped_screenshots:

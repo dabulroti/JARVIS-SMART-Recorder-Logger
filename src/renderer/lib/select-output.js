@@ -14,40 +14,64 @@ async function zipDirectory(sourceDir, outPath) {
 async function deleteFolderContents(folderPath) {
   const files = await fs.readdir(folderPath, { withFileTypes: true });
   for (const file of files) {
-    const fullPath = path.join(folderPath, file.name);
-    if (file.isDirectory()) {
-      await deleteDirectory(fullPath);
-    } else {
-      await fs.unlink(fullPath);
-    }
+      const fullPath = path.join(folderPath, file.name);
+      if (file.isDirectory()) {
+          await deleteDirectory(fullPath);
+      } else {
+          await deleteFileWithRetry(fullPath);
+      }
   }
 }
+
 
 async function deleteDirectory(directoryPath) {
   await deleteFolderContents(directoryPath);
   await fs.rmdir(directoryPath);
 }
 
-async function exportVideo(ext) {
-  const filePath = path.join(os.homedir(), 'AppData', 'Roaming', 'JARVIS - SMART', `vid-${Date.now()}.${ext}`);
-  console.log(filePath);
-
-  if (filePath) {
-    console.log(filePath);
-    await createVideoFile(filePath);
-    try {
-      while (true){
-        const videoExists = await fs.access(filePath).then(() => true).catch(() => false);
-        if (videoExists) {
-        await zips(filePath);
-        break;
+async function deleteFileWithRetry(filePath, maxRetries = 5, retryDelay = 1000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+          await fs.unlink(filePath);
+          console.log(`File successfully deleted: ${filePath}`);
+          return;
+      } catch (error) {
+          if (error.code === 'ENOENT') {
+              console.log(`File does not exist, skipping delete: ${filePath}`);
+              return;
+          } else if (attempt < maxRetries) {
+              console.log(`Attempt ${attempt} failed to delete file. Retrying in ${retryDelay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, retryDelay));
+          } else {
+              console.log(`Failed to delete file after ${maxRetries} attempts.`);
+              throw error;
+          }
       }
-     }
-    } catch (error) {
-      console.error('Error creating video file:', error);
-    }
   }
 }
+
+
+async function exportVideo(ext) {
+  const filePath = path.join(os.homedir(), 'AppData', 'Roaming', 'JARVIS - SMART', `vid-${Date.now()}.${ext}`);
+  console.log(`Creating video at: ${filePath}`);
+
+  try {
+    // Wait for the video file to be fully created and processed.
+    await createVideoFile(filePath);
+    console.log(`Video file created at: ${filePath}`);
+
+    // Proceed with zipping the file now that it's guaranteed to be ready.
+    await zips(filePath);
+    console.log(`Zipping completed for: ${filePath}`);
+
+    // Optionally delete the original file after zipping, if required.
+    await deleteFileWithRetry(filePath);
+    console.log(`Original video file deleted: ${filePath}`);
+  } catch (error) {
+    console.error('Error in video creation or post-processing:', error);
+  }
+}
+
 
 async function zips(filePath){
   const folderToZip = path.join(os.homedir(), 'AppData', 'Roaming', 'JARVIS - SMART');
@@ -75,7 +99,7 @@ async function zips(filePath){
     console.log(document.getElementById('flowId').innerText);
 
 
-  
+
     const fileContent = await fs.readFile(zipPath);
     formData.append('file', new Blob([fileContent]), path.basename(zipPath));
     // Define the fetch options
@@ -84,15 +108,15 @@ async function zips(filePath){
       body: formData,
       // Note: Fetch API does not require setting Content-Type header for FormData. It sets the correct multipart/form-data boundary itself
     };
-    
+
     try {
       // Execute the fetch call to upload the file
       const response = await fetch('http://127.0.0.1:8002/upload/', fetchOptions);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-  
+
       // Parse and log the response JSON
       const result = await response.json();
       uploadFlag = true
@@ -100,7 +124,7 @@ async function zips(filePath){
     } catch (error) {
       console.error("Error uploading file:", error);
     }
-  
+
 
     if (newSavePath && uploadFlag) {
       await fs.rename(zipPath, newSavePath);
