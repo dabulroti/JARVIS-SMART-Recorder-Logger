@@ -106,7 +106,7 @@ async function zips(filePath){
       await fs.rename(zipPath, newSavePath);
       console.log(`Folder zipped and saved at ${newSavePath}`);
 
-      // await deleteFolderContents(folderToZip);
+      await deleteFolderContents(folderToZip);
       // console.log('Deleted original contents of "JARVIS - SMART" directory.');
     } else {
       console.log('Zipped folder save cancelled by user.');
