@@ -1,6 +1,5 @@
 import logging
 import sys
-
 import os
 import uvicorn
 import threading
@@ -15,6 +14,46 @@ from pynput import mouse, keyboard
 from docx.shared import Inches, RGBColor
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, File, UploadFile, Form
+from pymongo import MongoClient
+from pydantic import BaseModel
+import gridfs
+from typing import Optional
+import zipfile
+from fastapi.responses import FileResponse
+from io import BytesIO
+from fastapi.responses import StreamingResponse
+import shutil
+from fastapi import APIRouter
+from pydantic import BaseModel
+import json
+
+
+
+
+app = FastAPI()
+
+
+
+class UploadRequest(BaseModel):
+    processId: str
+    empId: str
+    flowId: str
+
+class RetrieveLogRequest(BaseModel):
+    processId: str
+    empId: str
+    flowId: str
+
+
+mongo_uri = "mongodb://localhost:27017/"
+database_name = "ProcMap"
+
+def get_gridfs_connection():
+    client = MongoClient(mongo_uri)
+    db = client[database_name]
+    fs = gridfs.GridFS(db)
+    return fs, db
 
 doc = None
 table = None
@@ -50,9 +89,7 @@ app.add_middleware(
 app_data_path = Path(os.getenv('APPDATA')) / app_name
 full_screenshots_dir = app_data_path / 'Full_Screenshots'
 cropped_screenshots_dir = app_data_path / 'Cropped_Screenshots'
-# Create the directories, ensuring parent directories are created too
-full_screenshots_dir.mkdir(parents=True, exist_ok=True)
-cropped_screenshots_dir.mkdir(parents=True, exist_ok=True)
+
 
 # Before starting or stopping logging, adjust where the TagUI script file is created
 activity_log_tag_path = app_data_path / 'Activity_Log.tag'
@@ -61,21 +98,17 @@ activity_log_docx_path = app_data_path / 'Activity_Log.docx'
 
 
 
-log_directory = os.path.join(os.getenv('APPDATA', os.path.expanduser('~')), app_name)
-# Ensure the directory exists
-os.makedirs(log_directory, exist_ok=True)
-log_file_path = os.path.join(log_directory, 'app.log')
+# log_directory = os.path.join(os.getenv('APPDATA', os.path.expanduser('~')), app_name)
+# # Ensure the directory exists
+# os.makedirs(log_directory, exist_ok=True)
+# log_file_path = os.path.join(log_directory, 'app.log')
 # Setup logging to the specified file
-logging.basicConfig(filename=log_file_path, filemode='a', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# logging.basicConfig(filename=log_file_path, filemode='a', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 def append_to_tagui_script(content):
     with open(activity_log_tag_path, 'a') as file:
         file.write(content + "\n")
-
-
-# Ensure directories exist
-full_screenshots_dir.mkdir(parents=True, exist_ok=True)
-cropped_screenshots_dir.mkdir(parents=True, exist_ok=True)
 
 def remove_background(cropped_screenshot_path):
     cropped_screenshot_path = Path(cropped_screenshot_path)  # Convert to Path object if not already
@@ -171,15 +204,72 @@ def stop_listening(key):
             flush_keystrokes()  # Ensure we flush any remaining keystrokes
         return False
 
+    
+@app.post("/upload/")
+async def upload_file(empId: str = Form(...), processId: str = Form(...), flowId: str = Form(...), file: UploadFile = File(...)):
+
+    # Now you directly use the form fields to construct your UploadRequest object
+    # upload_request = UploadRequest(empId=empId, processId=processId, flowId=flowId)
+    
+    fs, db = get_gridfs_connection()
+    employees_collection = db["employees"]
+    
+    # The rest of your function remains unchanged, using the constructed UploadRequest object
+    employee = employees_collection.find_one({"empId": empId})
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found.")
+    
+    processObject = next((p for p in employee.get("processObjects", []) if p["processId"] == processId), None)
+    if not processObject:
+        raise HTTPException(status_code=404, detail="Process not found.")
+    
+    # Save uploaded file to GridFS
+    contents = await file.read()
+    file_id = fs.put(contents, filename=file.filename)
+    
+    # Update the database entry
+    processObject.setdefault('flows', []).append({"file_id": file_id, "flowId": flowId})
+    employees_collection.update_one({"empId": empId}, {"$set": {"processObjects": employee["processObjects"]}})
+    
+    return {"message": "File uploaded successfully", "file_id": str(file_id)}
+
+@app.get("/retrieve/")
+def retrieve_file(upload_request: RetrieveLogRequest):
+    fs, db = get_gridfs_connection()
+    employees_collection = db["employees"]
+    
+    employee = employees_collection.find_one({"empId": upload_request.empId})
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found.")
+    
+    processObject = next((p for p in employee.get("processObjects", []) if p["processId"] == upload_request.processId), None)
+    # if not processObject or 'file_id' not in processObject:
+    #     raise HTTPException(status_code=404, detail="Process or file not found.")
+    if processObject:
+        flow = next((f for f in processObject.get("flows",[]) if f["flowId"] == upload_request.flowId),None)
+        if not flow or 'file_id' not in flow:
+            raise HTTPException(status_code=404, detail="Process or file not found.")
+        
+        file_id = flow['file_id']
+        file = fs.get(file_id)
+        
+        return StreamingResponse(BytesIO(file.read()), media_type="application/zip", headers={"Content-Disposition": "attachment; filename=download.zip"})
+    else:
+        raise HTTPException(status_code=404, detail="Process not found.")
+
+
 @app.post("/start-logging/")
 async def start_logging():
-    global listener_thread, listening, doc, table, cropped_screenshots
+    global listener_thread, listening, doc, table, cropped_screenshots_dir, full_screenshots_dir, activity_log_docx_path, activity_log_tag_path, cropped_screenshots
 
     # Cleanup before starting
     if activity_log_docx_path.exists():
         activity_log_docx_path.unlink()
     if activity_log_tag_path.exists():
         activity_log_tag_path.unlink()
+
+    full_screenshots_dir.mkdir(parents=True, exist_ok=True)
+    cropped_screenshots_dir.mkdir(parents=True, exist_ok=True)    
 
     # Initialize doc and table
     doc = Document()
