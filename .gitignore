@@ -95,3 +95,4 @@ build
 dist
 node_modules
 ScreenRecorder-win32-x64
+new worker

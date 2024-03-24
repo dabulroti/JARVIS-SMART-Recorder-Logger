@@ -260,7 +260,7 @@ def retrieve_file(upload_request: RetrieveLogRequest):
 
 @app.post("/start-logging/")
 async def start_logging():
-    global listener_thread, listening, doc, table, cropped_screenshots_dir, full_screenshots_dir, activity_log_docx_path, activity_log_tag_path, cropped_screenshots
+    global listener_thread, listening, doc, table, cropped_screenshots_dir, full_screenshots_dir, activity_log_docx_path, activity_log_tag_path, cropped_screenshots, Keyboard_listener_thread, mouse_listener_thread
 
     # Cleanup before starting
     if activity_log_docx_path.exists():
@@ -268,6 +268,8 @@ async def start_logging():
     if activity_log_tag_path.exists():
         activity_log_tag_path.unlink()
 
+    shutil.rmtree(full_screenshots_dir, ignore_errors=True)
+    shutil.rmtree(cropped_screenshots_dir, ignore_errors=True)
     full_screenshots_dir.mkdir(parents=True, exist_ok=True)
     cropped_screenshots_dir.mkdir(parents=True, exist_ok=True)
 
@@ -281,6 +283,20 @@ async def start_logging():
     hdr_cells[1].text = 'Full Screenshot'
     hdr_cells[2].text = 'Cropped Screenshot'
     cropped_screenshots = []
+
+    #delete all the threads
+    # if listener_thread:
+    #     listener_thread.join()
+    listener_thread = None
+
+    # if mouse_listener_thread:
+    #     mouse_listener_thread.join()
+    mouse_listener_thread = None
+
+    # if Keyboard_listener_thread:
+    #     Keyboard_listener_thread.join()
+    Keyboard_listener_thread = None
+
 
     if not listener_thread or not listener_thread.is_alive():
         listening = True
@@ -298,10 +314,14 @@ async def stop_logging():
 
     if mouse_listener_thread:
         mouse_listener_thread.join()
+    mouse_listener_thread = None
     if Keyboard_listener_thread:
         Keyboard_listener_thread.join()
+    Keyboard_listener_thread = None
     if listener_thread:
         listener_thread.join()
+    listener_thread = None
+   
 
     for screenshot in cropped_screenshots:
         remove_background(screenshot)
@@ -313,12 +333,13 @@ async def stop_logging():
 
 def run_listeners():
     global mouse_listener_thread, Keyboard_listener_thread
-    mouse_listener_thread = threading.Thread(target=lambda: mouse.Listener(on_click=on_click, on_scroll=on_scroll).start())
-    mouse_listener_thread.start()
-
-    Keyboard_listener_thread = threading.Thread(target=lambda: keyboard.Listener(on_press=on_press, on_release=stop_listening).start())
-    Keyboard_listener_thread.start()
+    if not mouse_listener_thread or not mouse_listener_thread.is_alive():
+        mouse_listener_thread = threading.Thread(target=lambda: mouse.Listener(on_click=on_click, on_scroll=on_scroll).start())
+        mouse_listener_thread.start()
+    if not Keyboard_listener_thread or not Keyboard_listener_thread.is_alive():
+        Keyboard_listener_thread = threading.Thread(target=lambda: keyboard.Listener(on_press=on_press, on_release=stop_listening).start())
+        Keyboard_listener_thread.start()
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8002, log_config=None)
+    uvicorn.run(app, host="127.0.0.1", port=8002)
 
