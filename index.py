@@ -86,8 +86,11 @@ cropped_screenshots_dir = app_data_path / 'Cropped_Screenshots'
 
 # Before starting or stopping logging, adjust where the TagUI script file is created
 activity_log_tag_path = app_data_path / 'Activity_Log.tag'
+activity_log_tag2_path = app_data_path / 'Activity_Log2.tag'
+activity_log_tag_path.parent.mkdir(parents=True, exist_ok=True)
 activity_log_tag_path.parent.mkdir(parents=True, exist_ok=True)
 activity_log_docx_path = app_data_path / 'Activity_Log.docx'
+activity_log_tag2_content = ''
 
 
 
@@ -131,7 +134,7 @@ def add_row_to_table(description, full_path=None, cropped_path=None):
         paragraph.add_run('\n' + os.path.basename(cropped_path))  # Add filename below the picture
 
 def flush_keystrokes():
-    global table
+    global table, activity_log_tag2_content
     with buffer_lock:
         if keystroke_buffer:
             statement = ''.join(keystroke_buffer)
@@ -140,9 +143,11 @@ def flush_keystrokes():
             paragraph = row[0].paragraphs[0]
             run = paragraph.add_run(f'Typed statement: "{statement}" on {datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.')
             run.font.color.rgb = RGBColor(255, 0, 0)  # Set the color to red
+            activity_log_tag2_content += f'keyboard {statement}\n'
             keystroke_buffer.clear()
 
 def on_click(x, y, button, pressed):
+    global activity_log_tag2_content
     if pressed and listening:
         timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         screenshot = ImageGrab.grab()
@@ -158,6 +163,7 @@ def on_click(x, y, button, pressed):
         add_row_to_table(action_description, full_screenshot_path, cropped_screenshot_path)
         if cropped_screenshot_path:  # Ensure path exists
             cropped_screenshots.append(cropped_screenshot_path)
+        activity_log_tag2_content += f'click {cropped_screenshot_path}\nwait 4\n'    
 
 def on_scroll(x, y, dx, dy):
     if listening:
@@ -168,6 +174,7 @@ def on_scroll(x, y, dx, dy):
 
 def on_press(key):
     global typing_timer
+    spKeys = False
     if listening:
         with buffer_lock:
             try:
@@ -175,6 +182,24 @@ def on_press(key):
                 if key == keyboard.Key.backspace:
                     if keystroke_buffer:  # Check if buffer is not empty
                         keystroke_buffer.pop()  # Remove the last character
+                elif key == keyboard.Key.enter:
+                    spKeys = True
+                    keystroke_buffer.append('[enter]\nwait 3\n')
+                elif key == keyboard.Key.tab:
+                    spKeys = True
+                    keystroke_buffer.append('[tab]\nwait 3\n')
+                elif key == keyboard.Key.space:
+                    keystroke_buffer.append(' ')
+                elif key == keyboard.Key.cmd_l or key == keyboard.Key.cmd_r:
+                    spKeys = True
+                    keystroke_buffer.append('[win]')
+                elif key == keyboard.Key.ctrl:
+                    keystroke_buffer.append('[ctrl]')
+                elif key == keyboard.Key.alt:
+                    keystroke_buffer.append('[alt]')
+                elif key == keyboard.Key.esc:
+                    spKeys = True
+                    keystroke_buffer.append('[esc]')
                 else:
                     keystroke_buffer.append(key.char)
             except AttributeError:
@@ -184,11 +209,14 @@ def on_press(key):
         # Restart the typing timer
         if typing_timer:
             typing_timer.cancel()
-        typing_timer = threading.Timer(typing_delay, flush_keystrokes)
-        typing_timer.start()
+        if not spKeys:    
+            typing_timer = threading.Timer(typing_delay, flush_keystrokes)
+            typing_timer.start()
+        else:
+            flush_keystrokes()    
 
 
-def stop_listening(key):
+def stop_listening(key):#
     global listening
     if key == keyboard.Key.esc:
         listening = False
@@ -253,13 +281,15 @@ def retrieve_file(upload_request: RetrieveLogRequest):
 
 @app.post("/start-logging/")
 async def start_logging():
-    global listener_thread, listening, doc, table, cropped_screenshots_dir, full_screenshots_dir, activity_log_docx_path, activity_log_tag_path, cropped_screenshots, Keyboard_listener_thread, mouse_listener_thread
+    global activity_log_tag2_content,listener_thread, listening, doc, table, cropped_screenshots_dir, full_screenshots_dir, activity_log_docx_path, activity_log_tag_path, cropped_screenshots, Keyboard_listener_thread, mouse_listener_thread
 
     # Cleanup before starting
     if activity_log_docx_path.exists():
         activity_log_docx_path.unlink()
     if activity_log_tag_path.exists():
         activity_log_tag_path.unlink()
+    if activity_log_tag2_path.exists():
+        activity_log_tag2_path.unlink()    
 
     shutil.rmtree(full_screenshots_dir, ignore_errors=True)
     shutil.rmtree(cropped_screenshots_dir, ignore_errors=True)
@@ -276,6 +306,7 @@ async def start_logging():
     hdr_cells[1].text = 'Full Screenshot'
     hdr_cells[2].text = 'Cropped Screenshot'
     cropped_screenshots = []
+    activity_log_tag2_content = ''
 
     #delete all the threads
     # if listener_thread:
@@ -313,11 +344,13 @@ async def stop_logging():
         keyboard_listener.join()
         keyboard_listener = None
 
-    for screenshot in cropped_screenshots:
-        remove_background(screenshot)
-
+    # for screenshot in cropped_screenshots:
+    #     remove_background(screenshot)
     if doc:
         doc.save(activity_log_docx_path)
+
+    with open(activity_log_tag_path, 'w') as file:
+        file.write(activity_log_tag2_content)    
 
     return {"message": "Logging stopped and data saved."}
 

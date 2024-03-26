@@ -13,7 +13,6 @@ document
   .then(response => response.json())
   .then(data => {
       console.log('Success:', data);
-      alert('Logging started successfully!');
   })
   .catch((error) => {
       console.error('Error:', error);
