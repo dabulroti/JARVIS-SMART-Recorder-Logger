@@ -1,8 +1,10 @@
 import logging
 import sys
 import os
+import pypandoc
 import uvicorn
 import threading
+from docx2pdf import convert
 from rembg import remove
 from pathlib import Path
 from docx import Document
@@ -348,6 +350,9 @@ async def stop_logging():
     #     remove_background(screenshot)
     if doc:
         doc.save(activity_log_docx_path)
+        activity_log_pdf_path = activity_log_docx_path.with_suffix('.pdf')
+        convert(activity_log_docx_path, activity_log_pdf_path)
+
 
     with open(activity_log_tag_path, 'w') as file:
         file.write(activity_log_tag2_content)    
